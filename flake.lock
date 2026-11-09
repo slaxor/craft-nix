@@ -1,0 +1,99 @@
+{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1794042290,
+        "narHash": "sha256-ziZn2PvCJE5JEEpqTdxXwJpPB+L3YqoCpTAMCzyaP3U=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "f4a03c008967841f2a0b3cb7c436fc6fc31671f6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "pdfcraft-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794198605,
+        "narHash": "sha256-vAGGkxxM4lTX8T3UASWSHzxJcORLSLH4m0AhRAoTlvo=",
+        "owner": "storytold",
+        "repo": "pdfcraft",
+        "rev": "25025fa271d3488c474a292f4b1a9352ab16dedf",
+        "type": "github"
+      },
+      "original": {
+        "owner": "storytold",
+        "repo": "pdfcraft",
+        "type": "github"
+      }
+    },
+    "photocraft-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794209433,
+        "narHash": "sha256-lYUrUpufUK9GFI8Ox2NPsmO3fWvWYriKTwKhK0H4fLw=",
+        "owner": "storytold",
+        "repo": "photocraft",
+        "rev": "d06ad7327149b6cc08df58c7b9ab10258f86828d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "storytold",
+        "repo": "photocraft",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs",
+        "pdfcraft-src": "pdfcraft-src",
+        "photocraft-src": "photocraft-src",
+        "rust-overlay": "rust-overlay",
+        "vectorcraft-src": "vectorcraft-src"
+      }
+    },
+    "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794127728,
+        "narHash": "sha256-QhZ104DwHvvMxWxmI13zdppISE27UmdqhRI2VwBg/yU=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "51c6dc40d18552701f7c5c62e3f7a5fc899f7132",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "vectorcraft-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794213838,
+        "narHash": "sha256-MbHrFDnTm+Qnr7G7Mdjp1wJkpz4TDjcAMI82yElLRf8=",
+        "owner": "storytold",
+        "repo": "vectorcraft",
+        "rev": "036b19402c20b2371f6af36c14a8f523f3b05409",
+        "type": "github"
+      },
+      "original": {
+        "owner": "storytold",
+        "repo": "vectorcraft",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

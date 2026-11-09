@@ -1,0 +1,138 @@
+diff --git a/apps/vectorcraft/src/main.rs b/apps/vectorcraft/src/main.rs
+index fd062e5..6478dba 100644
+--- a/apps/vectorcraft/src/main.rs
++++ b/apps/vectorcraft/src/main.rs
+@@ -461,6 +461,7 @@ fn main() -> std::process::ExitCode {
+                 prefs_dir::attach_plugin_store(&mut session);
+                 let mut app = VectorcraftApp::new(session, services(cc.winit_window().cloned(), cc.egui_ctx.clone()));
+                 app.set_startup_update_check(true);
++                app.set_updates_managed_externally(updates_managed_externally(option_env!("VECTORCRAFT_UPDATES_MANAGED_EXTERNALLY")));
+                 load_prefs(&mut app, saved);
+                 safe_mode::after_start(&mut app, stopped);
+                 // The saved PDF presets live in their own folder (also read by vectorcraft-cli),
+@@ -614,6 +615,20 @@ fn spawning() -> std::sync::RwLockWriteGuard<'static, ()> {
+     CHILD_SPAWN.write().unwrap_or_else(std::sync::PoisonError::into_inner)
+ }
+ 
++/// Whether this build gets its updates from a package manager: `VECTORCRAFT_UPDATES_MANAGED_EXTERNALLY`
++/// set to anything when it was compiled.
++fn updates_managed_externally(build_setting: Option<&str>) -> bool {
++    build_setting.is_some()
++}
++
++#[cfg(test)]
++#[test]
++fn updates_are_managed_externally_only_when_the_build_says_so() {
++    assert!(!updates_managed_externally(None));
++    assert!(updates_managed_externally(Some("1")));
++    assert!(updates_managed_externally(Some("")), "set to anything, even empty");
++}
++
+ /// Held by a test that releases a locked file and opens it again (see [`CHILD_SPAWN`]).
+ #[cfg(all(test, feature = "wgpu"))]
+ fn no_spawns() -> std::sync::RwLockReadGuard<'static, ()> {
+diff --git a/crates/ui-egui/src/menus/state.rs b/crates/ui-egui/src/menus/state.rs
+index c0a0c04..6ea956b 100644
+--- a/crates/ui-egui/src/menus/state.rs
++++ b/crates/ui-egui/src/menus/state.rs
+@@ -221,6 +221,7 @@ pub fn enabled(app: &VectorcraftApp, id: &str) -> bool {
+         "file.reveal" => app.services.reveal.is_some() && app.session.active().is_some_and(|d| d.path.is_some()),
+         "file.cancelExport" | "file.exportInBackground" => app.background.jobs.iter().any(|j| j.progress.is_some() && !j.cancelled()),
+         "file.cancelOpen" => !app.opening.pending.is_empty(),
++        "help.checkForUpdates" => !app.updates_managed_externally(),
+         "file.openInBackground" => crate::opening::any_shown(app),
+         "plugin.cancelRuns" => crate::plugin_runs::any_running(app),
+         "plugin.hideRuns" => crate::plugin_runs::any_shown(app),
+diff --git a/crates/ui-egui/src/updates_ui.rs b/crates/ui-egui/src/updates_ui.rs
+index 77a00c3..499ca35 100644
+--- a/crates/ui-egui/src/updates_ui.rs
++++ b/crates/ui-egui/src/updates_ui.rs
+@@ -15,6 +15,10 @@ pub(crate) struct Runtime {
+     /// The desktop app turns the check at start on; tests and the web build leave it off.
+     #[cfg(not(target_arch = "wasm32"))]
+     startup_check: bool,
++    /// A build whose updates come from a package manager: no check at start, Help ▸ Check for
++    /// Updates off.
++    #[cfg(not(target_arch = "wasm32"))]
++    managed_externally: bool,
+     #[cfg(not(target_arch = "wasm32"))]
+     check_requested: bool,
+     /// The context of the last frame, to wake the UI when a check is queued from a menu callback.
+@@ -38,6 +42,8 @@ impl Default for Runtime {
+             #[cfg(not(target_arch = "wasm32"))]
+             startup_check: false,
+             #[cfg(not(target_arch = "wasm32"))]
++            managed_externally: false,
++            #[cfg(not(target_arch = "wasm32"))]
+             check_requested: false,
+             #[cfg(not(target_arch = "wasm32"))]
+             repaint: None,
+@@ -58,6 +64,20 @@ impl VectorcraftApp {
+         self.updates_rt.startup_check = on;
+     }
+ 
++    /// Set by a build whose updates come from a package manager (Nix, a distribution): the app
++    /// never checks at start and Help ▸ Check for Updates is off.
++    #[cfg(not(target_arch = "wasm32"))]
++    pub fn set_updates_managed_externally(&mut self, managed: bool) {
++        self.updates_rt.managed_externally = managed;
++    }
++
++    pub(crate) fn updates_managed_externally(&self) -> bool {
++        #[cfg(not(target_arch = "wasm32"))]
++        return self.updates_rt.managed_externally;
++        #[cfg(target_arch = "wasm32")]
++        false
++    }
++
+     /// Starts the install helper of an update that is ready, so it installs once the process has
+     /// exited (does nothing when no update is ready). Call it in `on_exit` when the process ends
+     /// there, since the app is then never dropped.
+@@ -70,6 +90,9 @@ impl VectorcraftApp {
+ pub(crate) fn check(app: &mut VectorcraftApp) -> Result<Value, String> {
+     #[cfg(not(target_arch = "wasm32"))]
+     {
++        if app.updates_rt.managed_externally {
++            return Err("updates for this build come from its package manager".into());
++        }
+         app.updates_rt.check_requested = true;
+         if let Some(ctx) = &app.updates_rt.repaint {
+             ctx.request_repaint();
+@@ -91,7 +114,7 @@ pub(crate) fn tick(app: &mut VectorcraftApp, ctx: &egui::Context) {
+         rt.repaint = Some(ctx.clone());
+         if std::mem::take(&mut rt.check_requested) {
+             rt.updater.check_now(ctx);
+-        } else if rt.startup_check {
++        } else if rt.startup_check && !rt.managed_externally {
+             rt.updater.check_at_start(ctx);
+         }
+         rt.updater.tick(ctx);
+@@ -225,6 +248,28 @@ mod tests {
+     use super::*;
+     use serde_json::json;
+     use vectorcraft_engine::Session;
++
++    #[test]
++    fn check_for_updates_is_on_by_default() {
++        let app = VectorcraftApp::new(Session::new(), Default::default());
++        assert!(crate::menus::enabled(&app, "help.checkForUpdates"));
++    }
++
++    #[test]
++    #[cfg(not(target_arch = "wasm32"))]
++    fn a_package_managed_build_never_checks_and_turns_the_command_off() {
++        let mut app = VectorcraftApp::new(Session::new(), Default::default());
++        app.set_startup_update_check(true);
++        app.set_updates_managed_externally(true);
++        let ctx = egui::Context::default();
++
++        tick(&mut app, &ctx);
++        assert_eq!(app.updates_rt.updater.status(), &Status::Idle, "nothing is asked at start");
++        assert!(!crate::menus::enabled(&app, "help.checkForUpdates"), "off in menus, palette and on keys");
++        assert!(check(&mut app).is_err(), "automation can't start one either");
++        tick(&mut app, &ctx);
++        assert_eq!(app.updates_rt.updater.status(), &Status::Idle);
++    }
+     use vectorcraft_tools::{PointerEvent, PointerKind};
+ 
+     /// The folder that holds `name`'s update records.
