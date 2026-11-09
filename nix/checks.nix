@@ -66,6 +66,9 @@ let
         enable = true;
         defaultFor = supported;
       };
+      declaresTypes = lib.hasInfix "\nMimeType=" (
+        builtins.readFile "${srcs.${app}}/packaging/linux/${desktopId}"
+      );
     in
     {
       "desktop entry ${desktopId} exists" =
@@ -74,14 +77,23 @@ let
       "enable installs ${app}" = packageNames installed == [ app ];
       "enable alone leaves mimeapps alone" =
         !installed.xdg.mimeApps.enable && installed.xdg.mimeApps.defaultApplications == { };
-      "defaultFor maps exactly the listed types" =
-        supported != [ ]
-        && chosen.xdg.mimeApps.enable
-        && chosen.xdg.mimeApps.defaultApplications == lib.genAttrs supported (_: [ desktopId ]);
       "supported types pass the assertion" = failedAssertions chosen == [ ];
       "an unsupported type fails the assertion by name" =
         failedAssertions typo == [ "programs.${app}.defaultFor: ${displayName} doesn't open ${mime}" ];
-    };
+    }
+    // (
+      if declaresTypes then
+        {
+          "defaultFor maps exactly the listed types" =
+            supported != [ ]
+            && chosen.xdg.mimeApps.enable
+            && chosen.xdg.mimeApps.defaultApplications == lib.genAttrs supported (_: [ desktopId ]);
+        }
+      else
+        {
+          "no MimeType= in the desktop entry, so defaultFor offers no types" = supported == [ ];
+        }
+    );
 
   packageExpectations =
     app: spec:
@@ -95,7 +107,7 @@ let
       "carries the update patch" =
         map baseNameOf package.patches == [ "${app}-updates-managed-externally.patch" ];
     }
-    // lib.optionalAttrs (app == "pdfcraft") {
+    // lib.optionalAttrs (app == "pdfcraft" || spec.i18n or false) {
       "built with the pinned translations" =
         (package.CRAFT_I18N_REQUIRED or null) == "1"
         && lib.hasInfix "craft-i18n-" (package.CRAFT_I18N_DIR or "");

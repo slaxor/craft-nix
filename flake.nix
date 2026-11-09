@@ -47,6 +47,26 @@
       url = "github:storytold/cadcraft";
       flake = false;
     };
+    wordcraft-src = {
+      url = "github:storytold/wordcraft";
+      flake = false;
+    };
+    gridcraft-src = {
+      url = "github:storytold/gridcraft";
+      flake = false;
+    };
+    effectcraft-src = {
+      url = "github:storytold/effectcraft";
+      flake = false;
+    };
+    materialcraft-src = {
+      url = "github:storytold/materialcraft";
+      flake = false;
+    };
+    texturecraft-src = {
+      url = "github:storytold/texturecraft";
+      flake = false;
+    };
   };
 
   outputs =

@@ -1,0 +1,25 @@
+diff --git a/crates/ui-egui/src/updates_ui.rs b/crates/ui-egui/src/updates_ui.rs
+index cded96c..46621c3 100644
+--- a/crates/ui-egui/src/updates_ui.rs
++++ b/crates/ui-egui/src/updates_ui.rs
+@@ -9,6 +9,11 @@ use crate::SheetApp;
+ 
+ const VERSION: &str = env!("CARGO_PKG_VERSION");
+ 
++/// Set by a build whose updates come from a package manager (Nix, a distribution):
++/// `GRIDCRAFT_UPDATES_MANAGED_EXTERNALLY` set to anything when compiling. Such a build
++/// never checks for updates at start; Help › Check for Updates still asks when chosen.
++const UPDATES_MANAGED_EXTERNALLY: bool = option_env!("GRIDCRAFT_UPDATES_MANAGED_EXTERNALLY").is_some();
++
+ pub(crate) struct Runtime {
+     updater: Updater,
+     /// The check at start was asked for; `tick` starts it with the context.
+@@ -36,7 +41,7 @@ pub(crate) fn tick(app: &mut SheetApp, ctx: &egui::Context) {
+     let rt = &mut app.updates_rt;
+     if std::mem::take(&mut rt.manual) {
+         rt.updater.check_now(ctx);
+-    } else if rt.startup {
++    } else if rt.startup && !UPDATES_MANAGED_EXTERNALLY {
+         rt.updater.check_at_start(ctx);
+     }
+     rt.updater.tick(ctx);

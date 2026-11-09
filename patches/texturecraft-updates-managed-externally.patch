@@ -1,0 +1,25 @@
+diff --git a/crates/ui-egui/src/updates_ui.rs b/crates/ui-egui/src/updates_ui.rs
+index fa1e6c4..817e2b3 100644
+--- a/crates/ui-egui/src/updates_ui.rs
++++ b/crates/ui-egui/src/updates_ui.rs
+@@ -6,6 +6,11 @@ use craft_update::{CheckResultDialog, CheckResultResponse};
+ 
+ use crate::TextureCraftApp;
+ 
++/// Set by a build whose updates come from a package manager (Nix, a distribution):
++/// `TEXTURECRAFT_UPDATES_MANAGED_EXTERNALLY` set to anything when compiling. Such a build
++/// never checks for updates at start; Help › Check for Updates still asks when chosen.
++const UPDATES_MANAGED_EXTERNALLY: bool = option_env!("TEXTURECRAFT_UPDATES_MANAGED_EXTERNALLY").is_some();
++
+ pub(crate) struct Runtime {
+     updater: Updater,
+     /// The desktop app turns the check at start on; tests leave it off.
+@@ -48,7 +53,7 @@ pub(crate) fn tick(app: &mut TextureCraftApp, ctx: &egui::Context) {
+     let rt = &mut app.updates_rt;
+     if std::mem::take(&mut rt.check_requested) {
+         rt.updater.check_now(ctx);
+-    } else if rt.startup_check {
++    } else if rt.startup_check && !UPDATES_MANAGED_EXTERNALLY {
+         rt.updater.check_at_start(ctx);
+     }
+     rt.updater.tick(ctx);

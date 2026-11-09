@@ -16,10 +16,19 @@ the only change is one small patch per app (see [Patches](#patches)).
 | [filmcraft](https://github.com/storytold/filmcraft) | Edit video, color and sound |
 | [deckcraft](https://github.com/storytold/deckcraft) | Create and present slide decks |
 | [cadcraft](https://github.com/storytold/cadcraft) | Draft, dimension and plot 2D drawings |
+| [wordcraft](https://github.com/storytold/wordcraft) | Write and design documents; open and save Word files |
+| [gridcraft](https://github.com/storytold/gridcraft) | Calculate, analyse and chart data in workbooks |
+| [effectcraft](https://github.com/storytold/effectcraft) | Motion graphics and visual effects compositor |
+| [materialcraft](https://github.com/storytold/materialcraft) | Design procedural PBR materials with node graphs |
+| [texturecraft](https://github.com/storytold/texturecraft) | Paint PBR textures directly on 3D meshes |
 
-What differs per app (fonts, extra libraries) is the table in `nix/apps.nix`; pdfcraft has its own
-`nix/pdfcraft.nix` for translations and OCR models, every other app builds with
-`nix/generic-app.nix`.
+What differs per app (fonts, translations, extra libraries) is the table in `nix/apps.nix`; pdfcraft
+has its own `nix/pdfcraft.nix` for its OCR models, every other app builds with `nix/generic-app.nix`.
+
+Not packaged: **anicraft** (early alpha, no Linux packaging yet), **artcraft** (a different stack:
+Tauri and WebKitGTK), **craft-launcher** (installs and updates the apps itself, which is Nix's job
+here) and **craft-anything** (built around AI providers and downloads). The printcraft and drawcraft
+repositories are the old names of pdfcraft and vectorcraft.
 
 ## Use
 
@@ -85,12 +94,14 @@ craft-nix: the packages build with their own locked Rust toolchain.
 
 - **Toolchain:** the official Rust toolchain from [rust-overlay](https://github.com/oxalica/rust-overlay).
   nixpkgs' `rustc` links a newer system LLVM that rejects AVX-512 code in PdfCraft's OCR engine.
-- **PdfCraft:** the interface translations (craft-i18n, the revision in `craft-i18n.rev`) and the OCR
-  models listed in `ATTRIBUTION.toml`, with their licences.
-- **Every other app except SoundCraft:** the fonts from craft-fonts, the revision its `release.yml`
-  pins (`craft-fonts-ref`), with the OFL licences. SoundCraft embeds none.
-- **Extra libraries:** ALSA for SoundCraft, FilmCraft and DeckCraft (audio through `cpal`),
-  fontconfig for FigCraft.
+- **PdfCraft and WordCraft:** the interface translations (craft-i18n, the revision in
+  `craft-i18n.rev`); PdfCraft also the OCR models listed in `ATTRIBUTION.toml`, with their licences.
+- **Every other app except SoundCraft, EffectCraft and MaterialCraft:** the fonts from craft-fonts,
+  the revision its `release.yml` pins (`craft-fonts-ref`), with the OFL licences. Those three embed
+  none (MaterialCraft's release pins a revision, but its build doesn't read it yet).
+- **Extra libraries:** ALSA for SoundCraft, FilmCraft, DeckCraft and EffectCraft (audio through
+  `cpal`), fontconfig for FigCraft and WordCraft.
+- **EffectCraft** registers no file types in its desktop entry, so its `defaultFor` accepts none.
 - The `[[patch.unused]]` entries of each `Cargo.lock` are dropped from the `[patch]` sections of
   `Cargo.toml` before the build: Nix vendors only the crates `Cargo.lock` uses, and offline cargo
   rejects a patch pointing at a missing crate.
@@ -104,7 +115,7 @@ start. Nix delivers updates, and a self-update can't replace a binary in the Nix
 - **pdfcraft, vectorcraft, photocraft:** **Help › Check for Updates** is off as well (menus,
   command palette, automation) and the preference for the check at start is hidden; the patches
   have tests for both settings.
-- **The other seven:** only the check at start is off (one guarded line in `updates_ui.rs`), so
+- **The other twelve:** only the check at start is off (one guarded line in `updates_ui.rs`), so
   **Help › Check for Updates** still asks when chosen. These patches are kept to that one line
   because every extra hunk is another place an upstream change breaks them.
 
@@ -112,11 +123,13 @@ For pdfcraft, vectorcraft and photocraft the rest was audited too (per binary: n
 sockets, spawned programs, URL opening): apart from the update check none contacts anything on its
 own. Their sockets are localhost only and opt-in (`--control`) or local IPC (single instance);
 PdfCraft asks before a document opens a link and never submits forms; VectorCraft's plugins run
-sandboxed without network. For the other seven a lighter check (the network crates in `Cargo.lock`,
+sandboxed without network. For the other twelve a lighter check (the network crates in `Cargo.lock`,
 sockets and outgoing connections in the source) found the same: localhost control ports, and
 network use only when asked for: LightCraft's remote denoise (`lightcraft-cli denoise-serve` on
-another machine), FigCraft's live collaboration sessions, and FilmCraft's speech models, downloaded
-only after a confirmation that shows size, source and licence, and checked against their SHA-256.
+another machine), FigCraft's live collaboration sessions, FilmCraft's speech models and EffectCraft's
+segmentation models, downloaded only when asked for and checked against their SHA-256. The
+`reqwest`/`quinn` in WordCraft's and GridCraft's `Cargo.lock` come from the Windows printing crate
+and aren't built on Linux.
 
 ## Updating
 
@@ -143,7 +156,6 @@ git diff > ../craft-nix/patches/pdfcraft-updates-managed-externally.patch
 ```
 
 **A hash mismatch for craft-i18n, or a new craft-fonts revision:** upstream moved the pinned
-revision (it is part of the fetch's name, so a stale hash fails instead of reusing old files). For
-craft-i18n put the hash from the error into `nix/pdfcraft.nix`; for craft-fonts add the revision to
-the table in `nix/craft-fonts.nix` (the error names it), with `lib.fakeHash` first and then the hash
-the build reports.
+revision (it is part of the fetch's name, so a stale hash fails instead of reusing old files). Add the
+revision to the table in `nix/craft-i18n.nix` or `nix/craft-fonts.nix` (the error names it), with
+`lib.fakeHash` first and then the hash the build reports.

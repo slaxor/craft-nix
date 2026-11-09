@@ -22,7 +22,7 @@ let
       lines = lib.splitString "\n" (builtins.readFile "${src}/packaging/linux/${desktopId}");
       mimeLines = builtins.filter (m: m != null) (map (builtins.match "MimeType=(.*)") lines);
     in
-    builtins.filter (t: t != "") (lib.splitString ";" (builtins.head (builtins.head mimeLines)));
+    lib.concatMap (m: builtins.filter (t: t != "") (lib.splitString ";" (builtins.head m))) mimeLines;
 
   unsupported = lib.subtractLists supportedMimeTypes cfg.defaultFor;
 in

@@ -1,0 +1,25 @@
+diff --git a/crates/ui-egui/src/updates_ui.rs b/crates/ui-egui/src/updates_ui.rs
+index 316e34a..1626638 100644
+--- a/crates/ui-egui/src/updates_ui.rs
++++ b/crates/ui-egui/src/updates_ui.rs
+@@ -7,6 +7,11 @@ use craft_update::dialog::{CheckResultDialog, CheckResultResponse};
+ #[cfg(not(target_arch = "wasm32"))]
+ use craft_update::updater::{Action, Status, Updater};
+ 
++/// Set by a build whose updates come from a package manager (Nix, a distribution):
++/// `EFFECTCRAFT_UPDATES_MANAGED_EXTERNALLY` set to anything when compiling. Such a build
++/// never checks for updates at start; Help › Check for Updates still asks when chosen.
++const UPDATES_MANAGED_EXTERNALLY: bool = option_env!("EFFECTCRAFT_UPDATES_MANAGED_EXTERNALLY").is_some();
++
+ pub(crate) struct Runtime {
+     #[cfg(not(target_arch = "wasm32"))]
+     updater: Updater,
+@@ -63,7 +68,7 @@ pub(crate) fn tick(app: &mut EffectcraftApp, ctx: &egui::Context) {
+         let rt = &mut app.updates_rt;
+         if std::mem::take(&mut rt.check_requested) {
+             rt.updater.check_now(ctx);
+-        } else if rt.startup_check {
++        } else if rt.startup_check && !UPDATES_MANAGED_EXTERNALLY {
+             rt.updater.check_at_start(ctx);
+         }
+         rt.updater.tick(ctx);

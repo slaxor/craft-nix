@@ -45,4 +45,30 @@ pkgs: {
     displayName = "CadCraft";
     description = "Draft, dimension and plot 2D drawings";
   };
+  wordcraft = {
+    displayName = "WordCraft";
+    description = "Write and design documents; open and save Word files";
+    i18n = true;
+    buildInputs = [ pkgs.fontconfig ];
+    runtimeLibs = [ pkgs.fontconfig ];
+  };
+  gridcraft = {
+    displayName = "GridCraft";
+    description = "Calculate, analyse and chart data in workbooks";
+  };
+  effectcraft = {
+    displayName = "EffectCraft";
+    description = "Motion graphics and visual effects compositor";
+    fonts = false;
+    buildInputs = [ pkgs.alsa-lib ];
+  };
+  materialcraft = {
+    displayName = "MaterialCraft";
+    description = "Design procedural PBR materials with node graphs";
+    fonts = false;
+  };
+  texturecraft = {
+    displayName = "TextureCraft";
+    description = "Paint PBR textures directly on 3D meshes";
+  };
 }
