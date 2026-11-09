@@ -82,7 +82,7 @@ let
     };
 
   packageExpectations =
-    app:
+    app: spec:
     let
       package = self.packages.${system}.${app};
       flag = "${lib.toUpper app}_UPDATES_MANAGED_EXTERNALLY";
@@ -96,7 +96,7 @@ let
       "built with the pinned translations" =
         (package.CRAFT_I18N_REQUIRED or null) == "1" && lib.hasInfix "craft-i18n-" (package.CRAFT_I18N_DIR or "");
     }
-    // lib.optionalAttrs (app != "pdfcraft") {
+    // lib.optionalAttrs (app != "pdfcraft" && spec.fonts or true) {
       "built with the release's craft-fonts" =
         (package.CRAFT_FONTS_REQUIRED or null) == "1" && lib.hasInfix "craft-fonts-" (package.CRAFT_FONTS_DIR or "");
     };
@@ -109,7 +109,7 @@ let
     assert lib.assertMsg (failed == [ ]) "${name}: failed: ${lib.concatStringsSep ", " failed}";
     pkgs.runCommand "${name}-check" { } "touch $out";
 in
-lib.concatMapAttrs (app: displayName: {
-  "hm-${app}" = checkThat "hm-${app}" (hmExpectations app displayName);
-  "package-${app}" = checkThat "package-${app}" (packageExpectations app);
+lib.concatMapAttrs (app: spec: {
+  "hm-${app}" = checkThat "hm-${app}" (hmExpectations app spec.displayName);
+  "package-${app}" = checkThat "package-${app}" (packageExpectations app spec);
 }) apps

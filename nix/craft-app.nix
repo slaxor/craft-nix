@@ -20,16 +20,19 @@
   app,
   src,
   description,
-  updatesFlag,
   env ? { },
+  buildInputs ? [ ],
+  runtimeLibs ? [ ],
   extraInstall ? "",
 }:
 
 let
   cargoToml = lib.importTOML "${src}/Cargo.toml";
   desktopId = "ai.storyteller.${app}";
+  updatesFlag = "${lib.toUpper app}_UPDATES_MANAGED_EXTERNALLY";
+  unusedPatches = map (p: p.name) ((lib.importTOML "${src}/Cargo.lock").patch.unused or [ ]);
 
-  runtimeLibs = [
+  allRuntimeLibs = runtimeLibs ++ [
     wayland
     libxkbcommon
     libGL
@@ -58,12 +61,14 @@ rustPlatform.buildRustPackage {
     pkg-config
     makeWrapper
   ];
+  inherit buildInputs;
 
-  postPatch = ''
-    sed -i -E '/^(egui_demo_lib|egui_inspection|egui_system_font_provider) = /d' Cargo.toml
+  postPatch = lib.optionalString (unusedPatches != [ ]) ''
+    sed -i -E '/^\[patch\./,/^\[/{/^(${lib.concatStringsSep "|" unusedPatches}) = /d}' Cargo.toml
   '';
 
   dontUseCmakeConfigure = true;
+  dontCargoUseSystemLibs = true;
 
   cargoBuildFlags = [
     "-p"
@@ -91,7 +96,7 @@ rustPlatform.buildRustPackage {
   '';
 
   postFixup = ''
-    patchelf --add-rpath ${lib.makeLibraryPath runtimeLibs} $out/bin/${app}
+    patchelf --add-rpath ${lib.makeLibraryPath allRuntimeLibs} $out/bin/${app}
     wrapProgram $out/bin/${app} --suffix PATH : ${lib.getBin cups}/bin
   '';
 

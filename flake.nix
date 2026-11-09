@@ -1,5 +1,5 @@
 {
-  description = "Nix packages and Home Manager modules for PdfCraft, VectorCraft and PhotoCraft";
+  description = "Nix packages and Home Manager modules for the storytold *Craft apps";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -19,6 +19,34 @@
       url = "github:storytold/photocraft";
       flake = false;
     };
+    lightcraft-src = {
+      url = "github:storytold/lightcraft";
+      flake = false;
+    };
+    soundcraft-src = {
+      url = "github:storytold/soundcraft";
+      flake = false;
+    };
+    designcraft-src = {
+      url = "github:storytold/designcraft";
+      flake = false;
+    };
+    figcraft-src = {
+      url = "github:storytold/figcraft";
+      flake = false;
+    };
+    filmcraft-src = {
+      url = "github:storytold/filmcraft";
+      flake = false;
+    };
+    deckcraft-src = {
+      url = "github:storytold/deckcraft";
+      flake = false;
+    };
+    cadcraft-src = {
+      url = "github:storytold/cadcraft";
+      flake = false;
+    };
   };
 
   outputs =
@@ -29,11 +57,10 @@
       ...
     }@inputs:
     let
-      apps = {
-        pdfcraft = "PdfCraft";
-        vectorcraft = "VectorCraft";
-        photocraft = "PhotoCraft";
-      };
+      inherit (nixpkgs) lib;
+
+      appNames = builtins.attrNames (import ./nix/apps.nix null);
+      srcs = lib.genAttrs appNames (app: inputs."${app}-src");
 
       systems = [
         "x86_64-linux"
@@ -41,7 +68,7 @@
       ];
       forAllSystems =
         f:
-        nixpkgs.lib.genAttrs systems (
+        lib.genAttrs systems (
           system:
           f (
             import nixpkgs {
@@ -59,20 +86,30 @@
             cargo = toolchain;
             rustc = toolchain;
           };
+          build =
+            app: spec:
+            if app == "pdfcraft" then
+              p.callPackage ./nix/pdfcraft.nix {
+                inherit rustPlatform;
+                src = srcs.${app};
+              }
+            else
+              p.callPackage ./nix/generic-app.nix { inherit rustPlatform; } (
+                spec
+                // {
+                  inherit app;
+                  src = srcs.${app};
+                }
+              );
         in
-        builtins.mapAttrs (
-          app: _:
-          p.callPackage ./nix/${app}.nix {
-            inherit rustPlatform;
-            src = inputs."${app}-src";
-          }
-        ) apps;
+        builtins.mapAttrs build (import ./nix/apps.nix p);
 
       moduleFor =
-        app: displayName:
+        app:
         import ./nix/hm-module.nix {
-          inherit self app displayName;
-          src = inputs."${app}-src";
+          inherit self app;
+          displayName = (import ./nix/apps.nix null).${app}.displayName;
+          src = srcs.${app};
         };
     in
     {
@@ -80,8 +117,8 @@
 
       overlays.default = final: _prev: packagesFor (final.extend rust-overlay.overlays.default);
 
-      homeModules = builtins.mapAttrs moduleFor apps // {
-        default.imports = builtins.attrValues (builtins.mapAttrs moduleFor apps);
+      homeModules = lib.genAttrs appNames moduleFor // {
+        default.imports = map moduleFor appNames;
       };
 
       devShells = forAllSystems (pkgs: {
@@ -93,9 +130,14 @@
             pkg-config
             nixfmt
           ];
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (
+          buildInputs = with pkgs; [
+            alsa-lib
+            fontconfig
+          ];
+          LD_LIBRARY_PATH = lib.makeLibraryPath (
             with pkgs;
             [
+              fontconfig
               libGL
               libx11
               libxcursor
@@ -112,8 +154,8 @@
       checks = forAllSystems (
         pkgs:
         import ./nix/checks.nix {
-          inherit pkgs self apps;
-          srcs = builtins.mapAttrs (app: _: inputs."${app}-src") apps;
+          inherit pkgs self srcs;
+          apps = import ./nix/apps.nix pkgs;
         }
       );
     };

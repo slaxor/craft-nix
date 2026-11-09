@@ -36,7 +36,6 @@ callPackage ./craft-app.nix { inherit rustPlatform; } {
   app = "pdfcraft";
   inherit src;
   description = "Read, organize, combine, split and secure PDFs";
-  updatesFlag = "PDFCRAFT_UPDATES_MANAGED_EXTERNALLY";
   env = {
     CRAFT_I18N_DIR = "${craftI18n}";
     CRAFT_I18N_REQUIRED = "1";
