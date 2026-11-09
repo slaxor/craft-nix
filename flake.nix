@@ -137,6 +137,7 @@
           LD_LIBRARY_PATH = lib.makeLibraryPath (
             with pkgs;
             [
+              dbus
               fontconfig
               libGL
               libx11

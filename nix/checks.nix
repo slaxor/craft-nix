@@ -54,20 +54,22 @@ let
         enable = true;
         defaultFor = [ mime ];
       };
-      supported = (lib.evalModules {
-        modules = [
-          homeManagerStub
-          self.homeModules.${app}
-        ];
-        specialArgs = { inherit pkgs; };
-      }).options.programs.${app}.defaultFor.example;
+      supported =
+        (lib.evalModules {
+          modules = [
+            homeManagerStub
+            self.homeModules.${app}
+          ];
+          specialArgs = { inherit pkgs; };
+        }).options.programs.${app}.defaultFor.example;
       chosen = configWith app {
         enable = true;
         defaultFor = supported;
       };
     in
     {
-      "desktop entry ${desktopId} exists" = builtins.pathExists "${srcs.${app}}/packaging/linux/${desktopId}";
+      "desktop entry ${desktopId} exists" =
+        builtins.pathExists "${srcs.${app}}/packaging/linux/${desktopId}";
       "disabled installs nothing" = disabled.home.packages == [ ];
       "enable installs ${app}" = packageNames installed == [ app ];
       "enable alone leaves mimeapps alone" =
@@ -89,16 +91,19 @@ let
     in
     {
       "built with ${flag}" = (package.${flag} or null) == "1";
+      "builds bundled C libraries like upstream's releases" = package.dontCargoUseSystemLibs or false;
       "carries the update patch" =
         map baseNameOf package.patches == [ "${app}-updates-managed-externally.patch" ];
     }
     // lib.optionalAttrs (app == "pdfcraft") {
       "built with the pinned translations" =
-        (package.CRAFT_I18N_REQUIRED or null) == "1" && lib.hasInfix "craft-i18n-" (package.CRAFT_I18N_DIR or "");
+        (package.CRAFT_I18N_REQUIRED or null) == "1"
+        && lib.hasInfix "craft-i18n-" (package.CRAFT_I18N_DIR or "");
     }
     // lib.optionalAttrs (app != "pdfcraft" && spec.fonts or true) {
       "built with the release's craft-fonts" =
-        (package.CRAFT_FONTS_REQUIRED or null) == "1" && lib.hasInfix "craft-fonts-" (package.CRAFT_FONTS_DIR or "");
+        (package.CRAFT_FONTS_REQUIRED or null) == "1"
+        && lib.hasInfix "craft-fonts-" (package.CRAFT_FONTS_DIR or "");
     };
 
   checkThat =

@@ -5,6 +5,7 @@
   perl,
   pkg-config,
   makeWrapper,
+  dbus,
   wayland,
   libxkbcommon,
   libGL,
@@ -33,6 +34,7 @@ let
   unusedPatches = map (p: p.name) ((lib.importTOML "${src}/Cargo.lock").patch.unused or [ ]);
 
   allRuntimeLibs = runtimeLibs ++ [
+    dbus
     wayland
     libxkbcommon
     libGL
