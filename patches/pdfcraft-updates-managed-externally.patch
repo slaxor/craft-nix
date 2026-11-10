@@ -1,9 +1,9 @@
 diff --git a/apps/pdfcraft/src/main.rs b/apps/pdfcraft/src/main.rs
-index 4de423d..3c8d2c9 100644
+index 797e14e..00921ed 100644
 --- a/apps/pdfcraft/src/main.rs
 +++ b/apps/pdfcraft/src/main.rs
-@@ -386,6 +386,20 @@ fn native_wayland(_: &eframe::CreationContext<'_>) -> bool {
-     false
+@@ -440,6 +440,20 @@ fn set_taskbar_icon(window: &winit::window::Window) {
+     }
  }
  
 +/// Whether this build gets its updates from a package manager: `PDFCRAFT_UPDATES_MANAGED_EXTERNALLY`
@@ -20,31 +20,31 @@ index 4de423d..3c8d2c9 100644
 +    assert!(updates_managed_externally(Some("")), "set to anything, even empty");
 +}
 +
+ /// Build the [`eframe::AppCreator`] closure that initializes [`PdfCraftApp`] once the window and renderer are ready.
  fn app_creator<'a>(
      launch: Launch,
-     started: Rc<Cell<bool>>,
-@@ -416,6 +430,7 @@ fn app_creator<'a>(
+@@ -474,6 +488,7 @@ fn app_creator<'a>(
              app.motion.source = Some(motion::source());
          }
          app.set_startup_update_check(true);
 +        app.updates_managed_externally = updates_managed_externally(option_env!("PDFCRAFT_UPDATES_MANAGED_EXTERNALLY"));
          app.printer_source = Some(pdfcraft_ui_egui::system_printers());
+         app.two_sided_source = Some(pdfcraft_ui_egui::system_two_sided());
          app.os_key_store_ids = cfg!(any(target_os = "macos", target_os = "windows"));
-         #[cfg(target_os = "macos")]
 diff --git a/crates/ui-egui/src/app.rs b/crates/ui-egui/src/app.rs
-index a48de69..6d098cf 100644
+index 759682f..6b39d41 100644
 --- a/crates/ui-egui/src/app.rs
 +++ b/crates/ui-egui/src/app.rs
-@@ -135,6 +135,7 @@ impl PdfCraftApp {
+@@ -152,6 +152,7 @@ impl PdfCraftApp {
              quit_session: None,
              reload_changed_files: true,
              update_check_at_start: true,
 +            updates_managed_externally: false,
              show_secured_notice: true,
+             text_links: true,
              always_default_view: false,
-             #[cfg(not(target_arch = "wasm32"))]
 diff --git a/crates/ui-egui/src/commands.rs b/crates/ui-egui/src/commands.rs
-index d455d0a..715cf08 100644
+index 549a877..6c35cfb 100644
 --- a/crates/ui-egui/src/commands.rs
 +++ b/crates/ui-egui/src/commands.rs
 @@ -103,6 +103,7 @@ impl PdfCraftApp {
@@ -55,7 +55,7 @@ index d455d0a..715cf08 100644
                  _ => true,
              }
      }
-@@ -127,6 +128,9 @@ impl PdfCraftApp {
+@@ -129,6 +130,9 @@ impl PdfCraftApp {
  
      /// Why the command can't run right now, for the user.
      fn disabled_reason(&self, spec: &CommandSpec) -> String {
@@ -66,7 +66,7 @@ index d455d0a..715cf08 100644
              commands::Needs::Undo => tl!("Nothing to undo").to_string(),
              commands::Needs::Redo => tl!("Nothing to redo").to_string(),
 diff --git a/crates/ui-egui/src/dialogs/preferences.rs b/crates/ui-egui/src/dialogs/preferences.rs
-index ea985f3..3868c1c 100644
+index 883d0b6..57b0b61 100644
 --- a/crates/ui-egui/src/dialogs/preferences.rs
 +++ b/crates/ui-egui/src/dialogs/preferences.rs
 @@ -660,7 +660,9 @@ fn card_general(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx: &mut
@@ -81,10 +81,10 @@ index ea985f3..3868c1c 100644
  
      #[cfg(not(target_arch = "wasm32"))]
 diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
-index d1440af..6898a4e 100644
+index 7dfa39a..60de9c5 100644
 --- a/crates/ui-egui/src/lib.rs
 +++ b/crates/ui-egui/src/lib.rs
-@@ -417,6 +417,9 @@ pub struct PdfCraftApp {
+@@ -476,6 +476,9 @@ pub struct PdfCraftApp {
      /// Preferences: ask for a newer release when the desktop app starts (#5737). Off, the app
      /// asks only from Help ▸ Check for updates.
      pub update_check_at_start: bool,
@@ -95,10 +95,10 @@ index d1440af..6898a4e 100644
      /// settings restrict changes). Off only hides that notice (#4035); kept in the settings.
      pub show_secured_notice: bool,
 diff --git a/crates/ui-egui/src/platform/updates.rs b/crates/ui-egui/src/platform/updates.rs
-index 4a5df45..1dbadb0 100644
+index df58adb..6ae551c 100644
 --- a/crates/ui-egui/src/platform/updates.rs
 +++ b/crates/ui-egui/src/platform/updates.rs
-@@ -75,7 +75,7 @@ impl PdfCraftApp {
+@@ -141,7 +141,7 @@ impl PdfCraftApp {
          {
              let Some(ctx) = self.ctx.clone() else { return };
              // Settled on the first frame: a preference turned on later waits for the next start.
@@ -108,10 +108,10 @@ index 4a5df45..1dbadb0 100644
              if std::mem::take(&mut updates.check_requested) {
                  updates.updater.check_now(&ctx);
 diff --git a/crates/ui-egui/tests/it/updates.rs b/crates/ui-egui/tests/it/updates.rs
-index e6cc09d..aeb28d7 100644
+index 61a0e03..9c61e0d 100644
 --- a/crates/ui-egui/tests/it/updates.rs
 +++ b/crates/ui-egui/tests/it/updates.rs
-@@ -180,6 +180,37 @@ fn preferences_turn_the_check_at_start_off() {
+@@ -182,6 +182,37 @@ fn preferences_turn_the_check_at_start_off() {
      assert!(h.state_mut().set_option("update_check_at_start", "maybe").is_err());
  }
  
