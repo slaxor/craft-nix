@@ -1,5 +1,5 @@
 diff --git a/apps/photocraft/src/services.rs b/apps/photocraft/src/services.rs
-index 6900d71af..6274fbad4 100644
+index f9c75ff..af11aea 100644
 --- a/apps/photocraft/src/services.rs
 +++ b/apps/photocraft/src/services.rs
 @@ -762,7 +762,7 @@ pub fn native(automation: Option<photocraft_automation::AuthorizedWorkspace>) ->
@@ -7,51 +7,7 @@ index 6900d71af..6274fbad4 100644
          open_url: Some(Box::new(|url: &str| open::that(url).map_err(|e| e.to_string()))),
          beep: Some(platform_beep),
 -        check_updates: Some(crate::updates::service()),
-+        check_updates: (!photocraft_ui_egui::UPDATES_MANAGED_EXTERNALLY).then(crate::updates::service),
++        check_updates: option_env!("PHOTOCRAFT_UPDATES_MANAGED_EXTERNALLY").is_none().then(crate::updates::service),
          last_update: Some(crate::updates::last_update),
          clipboard_set_image: Some({
              let clip = clip.clone();
-diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
-index 0b0bd4832..6a35cf34b 100644
---- a/crates/ui-egui/src/lib.rs
-+++ b/crates/ui-egui/src/lib.rs
-@@ -18,6 +18,11 @@ pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
-     ..craft_update::suite::PHOTOCRAFT
- };
- 
-+/// Set by a build whose updates come from a package manager (Nix, a distribution):
-+/// `PHOTOCRAFT_UPDATES_MANAGED_EXTERNALLY` set to anything when compiling. The app gets no update
-+/// check, so nothing is asked at start, Help ▸ Check for Updates is off and its preference hidden.
-+pub const UPDATES_MANAGED_EXTERNALLY: bool = option_env!("PHOTOCRAFT_UPDATES_MANAGED_EXTERNALLY").is_some();
-+
- /// Translate a string literal into the current UI language: `tl!("Image Size…")`.
- macro_rules! tl {
-     ($s:expr) => {
-diff --git a/crates/ui-egui/src/prefs/prefs_ui/fields.rs b/crates/ui-egui/src/prefs/prefs_ui/fields.rs
-index 9737cbb32..7f317df6e 100644
---- a/crates/ui-egui/src/prefs/prefs_ui/fields.rs
-+++ b/crates/ui-egui/src/prefs/prefs_ui/fields.rs
-@@ -386,6 +386,8 @@ pub(super) fn field_visible(section: &str, obj: &Map<String, Value>, k: &str, qu
-         || (section == "performance" && matches!(k, "useGpu" | "gpuBackend" | "gpuAdapter" | "renderingMode" | "memoryUsageMb"))
-         // The browser presents frames itself: Low-Latency Drawing does nothing there.
-         || (cfg!(target_arch = "wasm32") && path == "performance.lowLatencyDrawing")
-+        // A build updated by its package manager never checks.
-+        || (crate::UPDATES_MANAGED_EXTERNALLY && path == "general.automaticallyCheckUpdates")
-         || (section == "export" && !export_field_visible(obj, k))
-         || (section == "tools" && (!tools_field_visible(obj, k) || k == "tabletInput"));
-     (query.is_empty() || preference_matches(section, k, query))
-@@ -592,6 +594,14 @@ fn field_rows(ui: &mut egui::Ui, section: &str, obj: &mut Map<String, Value>, ke
- mod tests {
-     use super::preference_matches;
- 
-+    #[test]
-+    fn the_update_check_preference_is_shown_unless_a_package_manager_updates_the_build() {
-+        let general = serde_json::json!({"automaticallyCheckUpdates": true});
-+        let general = general.as_object().expect("an object");
-+        let shown = super::field_visible("general", general, "automaticallyCheckUpdates", "");
-+        assert_eq!(shown, !crate::UPDATES_MANAGED_EXTERNALLY);
-+    }
-+
-     /// The Tablet input row matches its visible search terms.
-     #[test]
-     fn wintab_row_matches_its_visible_terms() {

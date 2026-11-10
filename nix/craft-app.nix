@@ -1,5 +1,6 @@
 {
   lib,
+  writeText,
   rustPlatform,
   cmake,
   perl,
@@ -30,8 +31,16 @@
 let
   cargoToml = lib.importTOML "${src}/Cargo.toml";
   desktopId = "ai.storyteller.${app}";
-  updatesFlag = "${lib.toUpper app}_UPDATES_MANAGED_EXTERNALLY";
   unusedPatches = map (p: p.name) ((lib.importTOML "${src}/Cargo.lock").patch.unused or [ ]);
+  inherit (cargoToml.workspace.package) version;
+
+  versionChoice = {
+    apps.${app}.Pinned = version;
+  };
+  versionsFile = writeText "${app}-versions.json" (builtins.toJSON versionChoice);
+
+  updatesPatch = ../patches/${app}-updates-managed-externally.patch;
+  patches = lib.optional (builtins.pathExists updatesPatch) updatesPatch;
 
   allRuntimeLibs = runtimeLibs ++ [
     dbus
@@ -47,10 +56,7 @@ let
 in
 rustPlatform.buildRustPackage {
   pname = app;
-  inherit (cargoToml.workspace.package) version;
-  inherit src;
-
-  patches = [ ../patches/${app}-updates-managed-externally.patch ];
+  inherit version src patches;
 
   cargoLock = {
     lockFile = "${src}/Cargo.lock";
@@ -80,9 +86,7 @@ rustPlatform.buildRustPackage {
   ];
   doCheck = false;
 
-  env = env // {
-    ${updatesFlag} = "1";
-  };
+  env = env // lib.optionalAttrs (patches != [ ]) { "${lib.toUpper app}_UPDATES_MANAGED_EXTERNALLY" = "1"; };
 
   postInstall = ''
     install -Dm644 packaging/linux/${desktopId}.desktop -t $out/share/applications
@@ -99,10 +103,12 @@ rustPlatform.buildRustPackage {
 
   postFixup = ''
     patchelf --add-rpath ${lib.makeLibraryPath allRuntimeLibs} $out/bin/${app}
-    wrapProgram $out/bin/${app} --suffix PATH : ${lib.getBin cups}/bin
+    wrapProgram $out/bin/${app} \
+      --suffix PATH : ${lib.getBin cups}/bin \
+      --set-default CRAFT_VERSIONS_FILE ${versionsFile}
   '';
 
-  passthru = { inherit desktopId; };
+  passthru = { inherit desktopId versionChoice; };
 
   meta = {
     inherit description;

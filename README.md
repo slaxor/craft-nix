@@ -3,9 +3,9 @@
 Nix packages and Home Manager modules for the [storytold](https://github.com/storytold) *Craft apps,
 built from upstream's source for x86_64-linux and aarch64-linux.
 
-Upstream isn't forked. Each app is a `flake = false` input, and the only change is one small patch
-per app: the app no longer checks for updates when it starts, because updates come from Nix (see
-[Patches](#patches)).
+Upstream isn't forked or patched (one line for PhotoCraft aside). Each app is a `flake = false`
+input, and the apps never check for updates themselves, because updates come from Nix (see
+[Updates](#updates)).
 
 | App | What it does |
 |---|---|
@@ -155,22 +155,24 @@ Printing goes through CUPS; its client tools are on the apps' `PATH`.
   `Cargo.toml` before the build: Nix vendors only the crates `Cargo.lock` uses, and offline cargo
   rejects a patch pointing at a missing crate.
 
-## Patches
+## Updates
 
-`patches/<app>-updates-managed-externally.patch` adds one build-time switch,
-`<APP>_UPDATES_MANAGED_EXTERNALLY`, which the packages set, so the app never checks for updates at
-start. Nix delivers updates, and a self-update can't replace a binary in the Nix store anyway.
+The apps share one updater, craft-update, which reads a small file the ArtCraft launcher writes
+when someone keeps an app on a chosen version. An app listed there checks for nothing: neither at
+start nor through **Help › Check for Updates**, which then says the app "follows the version chosen
+in the launcher". The packages use that: each app's wrapper sets `CRAFT_VERSIONS_FILE` to a file in
+the Nix store that pins the app to its own version, `{"apps":{"pdfcraft":{"Pinned":"0.18.1"}}}`.
+The source stays as upstream wrote it, so an upstream change can't break a patch.
 
-- **pdfcraft, vectorcraft, photocraft:** **Help › Check for Updates** is off as well (menus,
-  command palette, automation) and the preference for the check at start is hidden; the patches
-  have tests for both settings.
-- **The other twelve:** only the check at start is off (one guarded line in `updates_ui.rs`), so
-  **Help › Check for Updates** still asks when chosen. These patches are kept to that one line
-  because every extra hunk is another place an upstream change breaks them.
+The wrapper only sets a default: `CRAFT_VERSIONS_FILE` from your environment wins.
+
+**PhotoCraft** is the exception: it asks GitHub through its own service, past the updater, so its
+package carries one line (`patches/photocraft-updates-managed-externally.patch`): built with
+`PHOTOCRAFT_UPDATES_MANAGED_EXTERNALLY` set, it has no update service at all.
 
 ### Network use
 
-For pdfcraft, vectorcraft and photocraft the rest was audited too (per binary: network crates,
+For pdfcraft, vectorcraft and photocraft the code was audited too (per binary: network crates,
 sockets, spawned programs, URL opening): apart from the update check none contacts anything on its
 own. Their sockets are localhost only and opt-in (`--control`) or local IPC (single instance);
 PdfCraft asks before a document opens a link and never submits forms; VectorCraft's plugins run
@@ -199,36 +201,32 @@ The recipes in the `justfile` keep updates deliberate, since every updated input
 
 ```sh
 just update-apps          # all *-src inputs, then nix flake check
-just update-app pdfcraft  # one app, then check that its patch still applies
+just update-app pdfcraft  # one app
 just update-base          # nixpkgs and rust-overlay: rebuilds every app
 just check                # nix flake check
 ```
 
 `nix flake check` evaluates, per app, the Home Manager module (against a small stub of Home
-Manager's options) and the package settings (update switch set, patch carried, translations or
-fonts pinned where the app has them). It also builds `patches-<app>` for the current system: only
-unpack and patch, with the package's own `src`, `patches` and `postPatch`, so a stale patch shows in
-seconds instead of after a full build. `nix flake check --no-build --all-systems` evaluates both
-systems without building. Whether an app still compiles only `nix build .#<app>` shows.
+Manager's options) and the package settings (pinned to its own version, patched only where needed,
+translations or fonts pinned where the app has them). `nix flake check --no-build --all-systems`
+evaluates both systems. Whether an app still builds only `nix build .#<app>` shows.
 
 What differs per app is the table in `nix/apps.nix` (description, fonts, translations, extra
 libraries). pdfcraft has its own `nix/pdfcraft.nix` for its OCR models; every other app builds with
 `nix/generic-app.nix`. Adding an app takes an input `<app>-src` in `flake.nix`, an entry in
-`nix/apps.nix`, a patch in `patches/`, and the app's name in `just update-apps`.
+`nix/apps.nix`, and the app's name in `just update-apps`. Check first that its update check goes
+through craft-update's `Updater` (as `check_at_start`/`check_now`); one that calls
+`check_for_update` directly, like PhotoCraft, needs a patch in `patches/`.
 
-**A patch no longer applies:** upstream changed the code around the update check. Redo the change
-on upstream's current source and regenerate the patch, inside this repo's dev shell (`nix develop`,
-or `use flake` with direnv: the Rust toolchain, the build tools and the libraries the tests load):
+**PhotoCraft's patch no longer applies:** upstream changed the line that sets `check_updates` in
+`apps/photocraft/src/services.rs`. Make the same change on the current source and regenerate it:
 
 ```sh
-git clone https://github.com/storytold/pdfcraft && cd pdfcraft
-git apply --3way ../craft-nix/patches/pdfcraft-updates-managed-externally.patch   # resolve what's left
-cargo test -p pdfcraft-ui-egui --test it updates
-git diff > ../craft-nix/patches/pdfcraft-updates-managed-externally.patch
+git clone https://github.com/storytold/photocraft && cd photocraft
+$EDITOR apps/photocraft/src/services.rs   # check_updates: option_env!(…).is_none().then(…)
+PHOTOCRAFT_UPDATES_MANAGED_EXTERNALLY=1 cargo check -p photocraft
+git diff > ../craft-nix/patches/photocraft-updates-managed-externally.patch
 ```
-
-For the twelve one-line patches, `<APP>_UPDATES_MANAGED_EXTERNALLY=1 cargo check -p <app>` is
-enough.
 
 **A hash mismatch for craft-i18n, or a new craft-fonts revision:** upstream moved the pinned
 revision (it is part of the fetch's name, so a stale hash fails instead of reusing old files). Add

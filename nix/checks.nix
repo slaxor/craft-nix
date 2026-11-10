@@ -99,13 +99,14 @@ let
     app: spec:
     let
       package = self.packages.${system}.${app};
-      flag = "${lib.toUpper app}_UPDATES_MANAGED_EXTERNALLY";
     in
     {
-      "built with ${flag}" = (package.${flag} or null) == "1";
+      "pins itself to its own version for craft-update" =
+        package.passthru.versionChoice == { apps.${app}.Pinned = package.version; };
+      "patched only where craft-update's pins can't reach" =
+        map baseNameOf (package.patches or [ ])
+        == lib.optional (app == "photocraft") "photocraft-updates-managed-externally.patch";
       "builds bundled C libraries like upstream's releases" = package.dontCargoUseSystemLibs or false;
-      "carries the update patch" =
-        map baseNameOf package.patches == [ "${app}-updates-managed-externally.patch" ];
     }
     // lib.optionalAttrs (app == "pdfcraft" || spec.i18n or false) {
       "built with the pinned translations" =
