@@ -25,7 +25,22 @@ input, and the apps never check for updates themselves, because updates come fro
 | [materialcraft](https://github.com/storytold/materialcraft) | Design procedural PBR materials with node graphs |
 | [texturecraft](https://github.com/storytold/texturecraft) | Paint PBR textures directly on 3D meshes |
 
-There is no binary cache: the first build of each app compiles it from source, which takes a while.
+GitHub Actions builds every app for both systems on each push to `master` and puts the results in a
+binary cache, so a machine using this flake downloads them instead of compiling (see
+[Binary cache](#binary-cache)). Without the cache each app compiles from source, which takes a while.
+
+## Binary cache
+
+```nix
+nix.settings = {
+  substituters = [ "https://craft-nix.cachix.org" ];
+  trusted-public-keys = [ "craft-nix.cachix.org-1:REPLACE-WITH-THE-CACHE-KEY" ];
+};
+```
+
+The cache holds what CI built from this repository's `flake.lock`, so it only matches when the apps
+build against that lock: leave out `inputs.nixpkgs.follows` (below). A `master` commit is in the
+cache once its [build](../../actions/workflows/build.yml) is green.
 
 ## Try one
 

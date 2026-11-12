@@ -99,24 +99,26 @@ let
     app: spec:
     let
       package = self.packages.${system}.${app};
+      build = package.passthru.unwrapped;
     in
     {
+      "compiles apart from its packaging" = build.pname == "${app}-unwrapped";
       "pins itself to its own version for craft-update" =
         package.passthru.versionChoice == { apps.${app}.Pinned = package.version; };
       "patched only where craft-update's pins can't reach" =
-        map baseNameOf (package.patches or [ ])
+        map baseNameOf (build.patches or [ ])
         == lib.optional (app == "photocraft") "photocraft-updates-managed-externally.patch";
-      "builds bundled C libraries like upstream's releases" = package.dontCargoUseSystemLibs or false;
+      "builds bundled C libraries like upstream's releases" = build.dontCargoUseSystemLibs or false;
     }
     // lib.optionalAttrs (app == "pdfcraft" || spec.i18n or false) {
       "built with the pinned translations" =
-        (package.CRAFT_I18N_REQUIRED or null) == "1"
-        && lib.hasInfix "craft-i18n-" (package.CRAFT_I18N_DIR or "");
+        (build.CRAFT_I18N_REQUIRED or null) == "1"
+        && lib.hasInfix "craft-i18n-" (build.CRAFT_I18N_DIR or "");
     }
     // lib.optionalAttrs (app != "pdfcraft" && spec.fonts or true) {
       "built with the release's craft-fonts" =
-        (package.CRAFT_FONTS_REQUIRED or null) == "1"
-        && lib.hasInfix "craft-fonts-" (package.CRAFT_FONTS_DIR or "");
+        (build.CRAFT_FONTS_REQUIRED or null) == "1"
+        && lib.hasInfix "craft-fonts-" (build.CRAFT_FONTS_DIR or "");
     };
 
   checkThat =
