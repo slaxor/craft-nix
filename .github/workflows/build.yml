@@ -1,6 +1,7 @@
 jobs:
   build:
     needs: check
+    environment: cachix
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: jlumbroso/free-disk-space@main
