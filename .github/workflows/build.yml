@@ -1,43 +1,6 @@
-name: build
-
-on:
-  push:
-    branches: [master]
-  pull_request:
-  workflow_dispatch:
-
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v31
-      - run: nix flake check --no-build --all-systems
-
   build:
     needs: check
-    strategy:
-      fail-fast: false
-      matrix:
-        app:
-          - cadcraft,
-          - deckcraft,
-          - designcraft,
-          - effectcraft,
-          - figcraft,
-          - filmcraft,
-          - gridcraft,
-          - lightcraft,
-          - materialcraft,
-          - pdfcraft,
-          - photocraft,
-          - soundcraft,
-          - texturecraft,
-          - vectorcraft,
-          - wordcraft,
-        runner:
-          - ubuntu-latest
-          # - ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: jlumbroso/free-disk-space@main
@@ -45,9 +8,43 @@ jobs:
       - uses: cachix/install-nix-action@v31
       - uses: cachix/cachix-action@v16
         with:
-          name: slaxor
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          name: slaxor
           skipPush: true
-      - run: nix build --print-build-logs .#${{ matrix.app }} .#${{ matrix.app }}.unwrapped
+      - run: "nix build --print-build-logs .#${{ matrix.app }} .#${{ matrix.app }}.unwrapped"
       - if: github.event_name != 'pull_request'
         run: cachix push craft-nix ./result ./result-1
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - cadcraft
+          - deckcraft
+          - designcraft
+          - effectcraft
+          - figcraft
+          - filmcraft
+          - gridcraft
+          - lightcraft
+          - materialcraft
+          - pdfcraft
+          - photocraft
+          - soundcraft
+          - texturecraft
+          - vectorcraft
+          - wordcraft
+        runner:
+          - ubuntu-latest
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix flake check --no-build --all-systems
+name: build
+"on":
+  pull_request: null
+  push:
+    branches:
+      - master
+  workflow_dispatch: null
