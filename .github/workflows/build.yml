@@ -19,8 +19,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [cadcraft, deckcraft, designcraft, effectcraft, figcraft, filmcraft, gridcraft, lightcraft, materialcraft, pdfcraft, photocraft, soundcraft, texturecraft, vectorcraft, wordcraft]
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        app:
+          - cadcraft,
+          - deckcraft,
+          - designcraft,
+          - effectcraft,
+          - figcraft,
+          - filmcraft,
+          - gridcraft,
+          - lightcraft,
+          - materialcraft,
+          - pdfcraft,
+          - photocraft,
+          - soundcraft,
+          - texturecraft,
+          - vectorcraft,
+          - wordcraft,
+        runner:
+          - ubuntu-latest
+          # - ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: jlumbroso/free-disk-space@main
@@ -28,7 +45,7 @@ jobs:
       - uses: cachix/install-nix-action@v31
       - uses: cachix/cachix-action@v16
         with:
-          name: craft-nix
+          name: slaxor
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: true
       - run: nix build --print-build-logs .#${{ matrix.app }} .#${{ matrix.app }}.unwrapped
