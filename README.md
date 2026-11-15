@@ -1,3 +1,4 @@
+[![build](https://github.com/slaxor/craft-nix/actions/workflows/build.yml/badge.svg)](https://github.com/slaxor/craft-nix/actions/workflows/build.yml)
 # craft-nix
 
 Nix packages and Home Manager modules for the [storytold](https://github.com/storytold) *Craft apps,
