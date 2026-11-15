@@ -14,7 +14,9 @@ jobs:
           skipPush: true
       - run: "nix build --print-build-logs .#${{ matrix.app }} .#${{ matrix.app }}.unwrapped"
       - if: github.event_name != 'pull_request'
-        run: cachix push craft-nix ./result ./result-1
+        env:
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        run: cachix push slaxor ./result ./result-1
     strategy:
       fail-fast: false
       matrix:
