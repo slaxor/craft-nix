@@ -243,6 +243,14 @@ PHOTOCRAFT_UPDATES_MANAGED_EXTERNALLY=1 cargo check -p photocraft
 git diff > ../craft-nix/patches/photocraft-updates-managed-externally.patch
 ```
 
+**A crate locked twice:** `Cargo.lock` sometimes holds one crate at the same version from two git
+revisions (craft-libs pinned twice, say). nixpkgs' `importCargoLock` can't vendor that ("ln: failed
+to create symbolic link … Permission denied"), so such an app is vendored with `fetchCargoVendor`
+instead, which needs a hash per `Cargo.lock`. `nix flake check` names the app; `just vendor-hash <app>`
+fails with the hash to add to `nix/cargo-vendor-hashes.nix` under the key it shows
+(`<app>-<first 12 hex digits of the lock's SHA-256>`). The key changes with every new `Cargo.lock`,
+so a stale hash can't be reused.
+
 **A hash mismatch for craft-i18n, or a new craft-fonts revision:** upstream moved the pinned
 revision (it is part of the fetch's name, so a stale hash fails instead of reusing old files). Add
 the revision to the table in `nix/craft-i18n.nix` or `nix/craft-fonts.nix` (the error names it),

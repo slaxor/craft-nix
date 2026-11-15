@@ -10,3 +10,7 @@ update-base:
 
 check:
     nix flake check
+
+# prints the "got:" hash for nix/cargo-vendor-hashes.nix
+vendor-hash app:
+    nix build --no-link .#{{ app }}.unwrapped.cargoDeps

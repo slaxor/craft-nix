@@ -103,6 +103,8 @@ let
     in
     {
       "compiles apart from its packaging" = build.pname == "${app}-unwrapped";
+      "has its vendor hash in nix/cargo-vendor-hashes.nix (nix build .#${app}.unwrapped.cargoDeps prints it)" =
+        build.vendorKey == null || (import ./cargo-vendor-hashes.nix) ? ${build.vendorKey};
       "pins itself to its own version for craft-update" =
         package.passthru.versionChoice == { apps.${app}.Pinned = package.version; };
       "patched only where craft-update's pins can't reach" =

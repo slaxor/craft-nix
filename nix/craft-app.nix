@@ -33,7 +33,31 @@
 let
   cargoToml = lib.importTOML "${src}/Cargo.toml";
   desktopId = "ai.storyteller.${app}";
-  unusedPatches = map (p: p.name) ((lib.importTOML "${src}/Cargo.lock").patch.unused or [ ]);
+  lockFile = "${src}/Cargo.lock";
+  lock = lib.importTOML lockFile;
+  unusedPatches = map (p: p.name) (lock.patch.unused or [ ]);
+
+  lockedTwice = lib.any (copies: builtins.length copies > 1) (
+    builtins.attrValues (builtins.groupBy (p: "${p.name}@${p.version}") lock.package)
+  );
+  vendorKey = "${app}-${builtins.substring 0 12 (builtins.hashFile "sha256" lockFile)}";
+  vendorHashes = import ./cargo-vendor-hashes.nix;
+  vendoring =
+    if lockedTwice then
+      {
+        cargoDeps = rustPlatform.fetchCargoVendor {
+          name = vendorKey;
+          inherit src;
+          hash = vendorHashes.${vendorKey} or lib.fakeHash;
+        };
+      }
+    else
+      {
+        cargoLock = {
+          inherit lockFile;
+          allowBuiltinFetchGit = true;
+        };
+      };
   inherit (cargoToml.workspace.package) version;
 
   versionChoice = {
@@ -67,14 +91,10 @@ let
     platforms = lib.platforms.linux;
   };
 
-  unwrapped = rustPlatform.buildRustPackage {
+  unwrapped = rustPlatform.buildRustPackage (vendoring // {
     pname = "${app}-unwrapped";
     inherit version src patches meta;
-
-    cargoLock = {
-      lockFile = "${src}/Cargo.lock";
-      allowBuiltinFetchGit = true;
-    };
+    passthru.vendorKey = if lockedTwice then vendorKey else null;
 
     nativeBuildInputs = [
       cmake
@@ -99,7 +119,7 @@ let
     doCheck = false;
 
     env = env // lib.optionalAttrs (patches != [ ]) { "${lib.toUpper app}_UPDATES_MANAGED_EXTERNALLY" = "1"; };
-  };
+  });
 in
 stdenvNoCC.mkDerivation {
   pname = app;
